@@ -13,14 +13,18 @@ struct EnrollView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 24) {
-                if let token = enrollmentToken {
-                    enrollmentContent(token: token)
-                } else {
-                    generateContent
+            ZStack {
+                FPColors.background.ignoresSafeArea()
+
+                VStack(spacing: FPSpacing.lg) {
+                    if let token = enrollmentToken {
+                        enrollmentContent(token: token)
+                    } else {
+                        generateContent
+                    }
                 }
+                .padding(FPSpacing.lg)
             }
-            .padding()
             .navigationTitle("Add Device")
             .alert("Error", isPresented: .constant(error != nil)) {
                 Button("OK") { error = nil }
@@ -30,33 +34,46 @@ struct EnrollView: View {
         }
     }
 
+    // MARK: - Generate Content
+
     private var generateContent: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: FPSpacing.xl) {
             Spacer()
 
-            Image(systemName: "qrcode")
-                .font(.system(size: 80))
-                .foregroundColor(.blue)
-                .padding(30)
-                .background(Color.blue.opacity(0.1))
-                .cornerRadius(20)
+            // Icon
+            ZStack {
+                Circle()
+                    .fill(FPColors.primary.opacity(0.1))
+                    .frame(width: 160, height: 160)
 
-            Text("Add a Device")
-                .font(.title)
-                .fontWeight(.bold)
+                Circle()
+                    .fill(FPColors.primary.opacity(0.15))
+                    .frame(width: 120, height: 120)
 
-            Text("Generate a QR code to enroll your child's iPhone")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
+                Image(systemName: "qrcode")
+                    .font(.system(size: 48, weight: .medium))
+                    .foregroundColor(FPColors.primary)
+            }
+
+            VStack(spacing: FPSpacing.sm) {
+                Text("Add a Device")
+                    .font(FPTypography.title)
+                    .foregroundColor(FPColors.textPrimary)
+
+                Text("Generate a QR code to enroll an iPhone or iPad into FocusPhone management")
+                    .font(FPTypography.subheadline)
+                    .foregroundColor(FPColors.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, FPSpacing.lg)
+            }
 
             Spacer()
 
+            // Generate button
             Button {
                 Task { await generateToken() }
             } label: {
-                HStack {
+                HStack(spacing: FPSpacing.sm) {
                     if isLoading {
                         ProgressView()
                             .tint(.white)
@@ -65,78 +82,87 @@ struct EnrollView: View {
                     }
                     Text("Generate QR Code")
                 }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.blue)
-                .foregroundColor(.white)
-                .cornerRadius(12)
             }
+            .buttonStyle(FPPrimaryButtonStyle())
             .disabled(isLoading)
         }
     }
 
+    // MARK: - Enrollment Content
+
     private func enrollmentContent(token: EnrollmentToken) -> some View {
-        VStack(spacing: 20) {
-            // QR Code
-            if let qrImage = generateQRCode(from: token.enrollmentURL) {
-                #if os(iOS)
-                Image(uiImage: qrImage)
-                    .interpolation(.none)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 220, height: 220)
-                    .padding()
-                    .background(Color.white)
-                    .cornerRadius(16)
-                    .shadow(color: .black.opacity(0.1), radius: 10)
-                #else
-                Image(nsImage: qrImage)
-                    .interpolation(.none)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 220, height: 220)
-                    .padding()
-                    .background(Color.white)
-                    .cornerRadius(16)
-                    .shadow(color: .black.opacity(0.1), radius: 10)
-                #endif
-            }
+        ScrollView {
+            VStack(spacing: FPSpacing.lg) {
+                // QR Code card
+                FPCard(padding: FPSpacing.lg) {
+                    VStack(spacing: FPSpacing.md) {
+                        if let qrImage = generateQRCode(from: token.enrollmentURL) {
+                            #if os(iOS)
+                            Image(uiImage: qrImage)
+                                .interpolation(.none)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 200, height: 200)
+                            #else
+                            Image(nsImage: qrImage)
+                                .interpolation(.none)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 200, height: 200)
+                            #endif
+                        }
 
-            Text("Scan to Enroll")
-                .font(.title2)
-                .fontWeight(.bold)
+                        VStack(spacing: FPSpacing.xs) {
+                            Text("Scan to Enroll")
+                                .font(FPTypography.title2)
+                                .foregroundColor(FPColors.textPrimary)
 
-            Text("Open Camera on the iPhone and scan this code")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
+                            Text("Point the iPhone camera at this QR code")
+                                .font(FPTypography.subheadline)
+                                .foregroundColor(FPColors.textSecondary)
+                        }
+                    }
+                }
 
-            // Instructions
-            VStack(alignment: .leading, spacing: 12) {
-                InstructionRow(number: 1, text: "Open Camera on iPhone")
-                InstructionRow(number: 2, text: "Point at QR code")
-                InstructionRow(number: 3, text: "Tap notification to install")
-                InstructionRow(number: 4, text: "Go to Settings → Install Profile")
-            }
-            .padding()
-            #if os(iOS)
-            .background(Color(.systemGroupedBackground))
-            #else
-            .background(Color(nsColor: .windowBackgroundColor))
-            #endif
-            .cornerRadius(12)
+                // Instructions
+                FPCard {
+                    VStack(alignment: .leading, spacing: FPSpacing.md) {
+                        Text("How to Enroll")
+                            .font(FPTypography.headline)
+                            .foregroundColor(FPColors.textPrimary)
 
-            Text("Expires: \(token.expiresAt.formatted())")
-                .font(.caption)
-                .foregroundColor(.secondary)
+                        InstructionStep(number: 1, text: "Open the Camera app on the iPhone")
+                        InstructionStep(number: 2, text: "Point at the QR code above")
+                        InstructionStep(number: 3, text: "Tap the notification that appears")
+                        InstructionStep(number: 4, text: "Go to Settings → General → VPN & Device Management")
+                        InstructionStep(number: 5, text: "Tap the profile and select \"Install\"")
+                    }
+                }
 
-            Button {
-                enrollmentToken = nil
-            } label: {
-                Text("Generate New Code")
-                    .foregroundColor(.blue)
+                // Expiry info
+                HStack(spacing: FPSpacing.xs) {
+                    Image(systemName: "clock")
+                        .foregroundColor(FPColors.textTertiary)
+                    Text("Expires: \(token.expiresAt.formatted(date: .abbreviated, time: .shortened))")
+                        .font(FPTypography.footnote)
+                        .foregroundColor(FPColors.textTertiary)
+                }
+
+                // New code button
+                Button {
+                    enrollmentToken = nil
+                } label: {
+                    HStack {
+                        Image(systemName: "arrow.clockwise")
+                        Text("Generate New Code")
+                    }
+                }
+                .buttonStyle(FPSecondaryButtonStyle())
             }
         }
     }
+
+    // MARK: - Actions
 
     private func generateToken() async {
         isLoading = true
@@ -150,6 +176,8 @@ struct EnrollView: View {
 
         isLoading = false
     }
+
+    // MARK: - QR Code Generation
 
     #if os(iOS)
     private func generateQRCode(from string: String) -> UIImage? {
@@ -186,22 +214,29 @@ struct EnrollView: View {
     #endif
 }
 
-struct InstructionRow: View {
+// MARK: - Instruction Step
+
+struct InstructionStep: View {
     let number: Int
     let text: String
 
     var body: some View {
-        HStack(spacing: 12) {
-            Text("\(number)")
-                .font(.caption)
-                .fontWeight(.semibold)
-                .foregroundColor(.blue)
-                .frame(width: 24, height: 24)
-                .background(Color.blue.opacity(0.1))
-                .cornerRadius(12)
+        HStack(spacing: FPSpacing.md) {
+            ZStack {
+                Circle()
+                    .fill(FPColors.primary)
+                    .frame(width: 28, height: 28)
+
+                Text("\(number)")
+                    .font(FPTypography.caption.weight(.bold))
+                    .foregroundColor(.white)
+            }
 
             Text(text)
-                .font(.subheadline)
+                .font(FPTypography.subheadline)
+                .foregroundColor(FPColors.textSecondary)
+
+            Spacer()
         }
     }
 }

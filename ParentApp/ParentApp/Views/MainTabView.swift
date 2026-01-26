@@ -24,6 +24,7 @@ struct MainTabView: View {
                 }
                 .tag(2)
         }
+        .tint(FPColors.primary)
         #else
         NavigationSplitView {
             List(selection: $selectedTab) {
@@ -48,6 +49,7 @@ struct MainTabView: View {
                 DevicesView()
             }
         }
+        .tint(FPColors.primary)
         #endif
     }
 }

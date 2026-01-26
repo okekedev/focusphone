@@ -8,25 +8,38 @@ struct DevicesView: View {
     @State private var error: String?
     @State private var selectedDevice: Device?
     @State private var showingMap = false
+    @State private var showingProfilePicker = false
+    @State private var deviceForProfile: Device?
 
     var body: some View {
         NavigationStack {
-            Group {
-                if isLoading {
-                    ProgressView("Loading devices...")
-                } else if devices.isEmpty {
-                    EmptyDevicesView()
-                } else {
-                    devicesList
+            ZStack {
+                FPColors.background.ignoresSafeArea()
+
+                Group {
+                    if isLoading {
+                        FPLoadingView()
+                    } else if devices.isEmpty {
+                        FPEmptyState(
+                            icon: "iphone.slash",
+                            title: "No Devices Yet",
+                            subtitle: "Add a device to start managing it. Tap the \"Add Device\" tab to generate a QR code.",
+                            actionTitle: nil,
+                            action: nil
+                        )
+                    } else {
+                        devicesList
+                    }
                 }
             }
-            .navigationTitle("Your Devices")
+            .navigationTitle("Devices")
             .toolbar {
                 ToolbarItem(placement: .automatic) {
                     Button {
                         Task { await loadData() }
                     } label: {
                         Image(systemName: "arrow.clockwise")
+                            .foregroundColor(FPColors.primary)
                     }
                 }
             }
@@ -41,29 +54,40 @@ struct DevicesView: View {
                     DeviceMapView(device: device)
                 }
             }
+            .sheet(isPresented: $showingProfilePicker) {
+                if let device = deviceForProfile {
+                    ProfilePickerView(device: device, profiles: profiles) {
+                        Task { await loadData() }
+                    }
+                }
+            }
         }
     }
 
     private var devicesList: some View {
-        List {
-            ForEach(devices) { device in
-                DeviceRow(
-                    device: device,
-                    profile: profiles.first { $0.id == device.profileId },
-                    onFindDevice: {
-                        selectedDevice = device
-                        showingMap = true
-                    }
-                )
+        ScrollView {
+            LazyVStack(spacing: FPSpacing.md) {
+                ForEach(devices) { device in
+                    DeviceCard(
+                        device: device,
+                        profile: profiles.first { $0.id == device.profileId },
+                        onFindDevice: {
+                            selectedDevice = device
+                            showingMap = true
+                        },
+                        onChangeProfile: {
+                            deviceForProfile = device
+                            showingProfilePicker = true
+                        }
+                    )
+                }
             }
+            .padding(FPSpacing.md)
         }
-        #if os(iOS)
-        .listStyle(.insetGrouped)
-        #endif
     }
 
     private func loadData() async {
-        isLoading = true
+        isLoading = devices.isEmpty
         error = nil
 
         do {
@@ -80,89 +104,123 @@ struct DevicesView: View {
     }
 }
 
-struct DeviceRow: View {
+// MARK: - Device Card
+
+struct DeviceCard: View {
     let device: Device
     let profile: Profile?
     let onFindDevice: () -> Void
+    let onChangeProfile: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Header
-            HStack {
-                Image(systemName: "iphone")
-                    .font(.title2)
-                    .foregroundColor(.blue)
-                    .frame(width: 44, height: 44)
-                    .background(Color.blue.opacity(0.1))
-                    .cornerRadius(10)
+        FPCard(padding: 0) {
+            VStack(spacing: 0) {
+                // Header
+                HStack(spacing: FPSpacing.md) {
+                    // Device icon
+                    ZStack {
+                        RoundedRectangle(cornerRadius: FPRadius.md)
+                            .fill(FPColors.primaryGradient)
+                            .frame(width: 56, height: 56)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(device.name)
-                        .font(.headline)
-                    Text(device.model)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        Image(systemName: "iphone")
+                            .font(.system(size: 24, weight: .medium))
+                            .foregroundColor(.white)
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(device.name)
+                            .font(FPTypography.headline)
+                            .foregroundColor(FPColors.textPrimary)
+
+                        Text(device.model)
+                            .font(FPTypography.subheadline)
+                            .foregroundColor(FPColors.textSecondary)
+                    }
+
+                    Spacer()
+
+                    FPStatusBadge(status: device.status)
                 }
+                .padding(FPSpacing.md)
 
-                Spacer()
+                Divider()
+                    .padding(.horizontal, FPSpacing.md)
 
-                // Status indicator
-                Circle()
-                    .fill(device.status == "managed" ? Color.green : Color.gray)
-                    .frame(width: 10, height: 10)
+                // Stats row
+                HStack(spacing: 0) {
+                    // Battery
+                    StatItem(
+                        icon: batteryIcon,
+                        value: batteryText,
+                        label: "Battery",
+                        color: batteryColor
+                    )
+
+                    Divider()
+                        .frame(height: 40)
+
+                    // Last seen
+                    StatItem(
+                        icon: device.isOnline ? "checkmark.circle.fill" : "clock",
+                        value: lastCheckinText,
+                        label: device.isOnline ? "Online" : "Last seen",
+                        color: device.isOnline ? FPColors.success : FPColors.textTertiary
+                    )
+
+                    Divider()
+                        .frame(height: 40)
+
+                    // Profile
+                    StatItem(
+                        icon: "shield.fill",
+                        value: profile?.name ?? "None",
+                        label: "Profile",
+                        color: FPColors.primary
+                    )
+                }
+                .padding(.vertical, FPSpacing.md)
+
+                Divider()
+                    .padding(.horizontal, FPSpacing.md)
+
+                // Actions
+                HStack(spacing: FPSpacing.sm) {
+                    Button(action: onFindDevice) {
+                        HStack(spacing: FPSpacing.xs) {
+                            Image(systemName: "location.fill")
+                            Text("Find")
+                        }
+                        .font(FPTypography.subheadline.weight(.medium))
+                        .foregroundColor(FPColors.primary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, FPSpacing.sm)
+                        .background(
+                            RoundedRectangle(cornerRadius: FPRadius.sm)
+                                .fill(FPColors.primary.opacity(0.1))
+                        )
+                    }
+                    .buttonStyle(.plain)
+
+                    Button(action: onChangeProfile) {
+                        HStack(spacing: FPSpacing.xs) {
+                            Image(systemName: "shield")
+                            Text("Profile")
+                        }
+                        .font(FPTypography.subheadline.weight(.medium))
+                        .foregroundColor(FPColors.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, FPSpacing.sm)
+                        .background(
+                            RoundedRectangle(cornerRadius: FPRadius.sm)
+                                .fill(FPColors.secondary.opacity(0.1))
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(FPSpacing.md)
             }
-
-            Divider()
-
-            // Status row
-            HStack(spacing: 16) {
-                // Battery
-                HStack(spacing: 4) {
-                    Image(systemName: batteryIcon)
-                        .foregroundColor(batteryColor)
-                    Text(batteryText)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-
-                // Last check-in
-                HStack(spacing: 4) {
-                    Image(systemName: device.isOnline ? "checkmark.circle.fill" : "exclamationmark.circle")
-                        .foregroundColor(device.isOnline ? .green : .orange)
-                    Text(lastCheckinText)
-                        .font(.caption)
-                        .foregroundColor(device.isOnline ? .secondary : .orange)
-                }
-
-                Spacer()
-
-                // Profile
-                if let profile {
-                    Text(profile.name)
-                        .font(.caption)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.purple.opacity(0.1))
-                        .foregroundColor(.purple)
-                        .cornerRadius(6)
-                }
-            }
-
-            // Find Device button
-            Button(action: onFindDevice) {
-                HStack {
-                    Image(systemName: "location.fill")
-                    Text("Find Device")
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-                .background(Color.blue.opacity(0.1))
-                .foregroundColor(.blue)
-                .cornerRadius(8)
-            }
-            .buttonStyle(.plain)
         }
-        .padding(.vertical, 8)
     }
 
     private var batteryIcon: String {
@@ -176,10 +234,10 @@ struct DeviceRow: View {
     }
 
     private var batteryColor: Color {
-        guard let level = device.batteryLevel else { return .gray }
-        if level < 20 { return .red }
-        if level < 50 { return .yellow }
-        return .green
+        guard let level = device.batteryLevel else { return FPColors.textTertiary }
+        if level < 20 { return FPColors.error }
+        if level < 50 { return FPColors.warning }
+        return FPColors.success
     }
 
     private var batteryText: String {
@@ -195,25 +253,180 @@ struct DeviceRow: View {
     }
 }
 
-struct EmptyDevicesView: View {
+// MARK: - Stat Item
+
+struct StatItem: View {
+    let icon: String
+    let value: String
+    let label: String
+    let color: Color
+
     var body: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "iphone.slash")
-                .font(.system(size: 60))
-                .foregroundColor(.gray.opacity(0.5))
+        VStack(spacing: 4) {
+            HStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(color)
 
-            Text("No Devices Yet")
-                .font(.title2)
-                .fontWeight(.semibold)
+                Text(value)
+                    .font(FPTypography.subheadline.weight(.semibold))
+                    .foregroundColor(FPColors.textPrimary)
+            }
 
-            Text("Tap \"Add Device\" to enroll your first device")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
+            Text(label)
+                .font(FPTypography.caption)
+                .foregroundColor(FPColors.textTertiary)
         }
-        .padding()
+        .frame(maxWidth: .infinity)
     }
 }
+
+// MARK: - Profile Picker
+
+struct ProfilePickerView: View {
+    let device: Device
+    let profiles: [Profile]
+    let onAssigned: () -> Void
+
+    @Environment(\.dismiss) var dismiss
+    @State private var isAssigning = false
+    @State private var selectedProfileId: String?
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                FPColors.background.ignoresSafeArea()
+
+                ScrollView {
+                    VStack(spacing: FPSpacing.md) {
+                        // Device info
+                        HStack(spacing: FPSpacing.md) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: FPRadius.md)
+                                    .fill(FPColors.primary.opacity(0.1))
+                                    .frame(width: 48, height: 48)
+
+                                Image(systemName: "iphone")
+                                    .foregroundColor(FPColors.primary)
+                            }
+
+                            VStack(alignment: .leading) {
+                                Text(device.name)
+                                    .font(FPTypography.headline)
+                                Text(device.model)
+                                    .font(FPTypography.subheadline)
+                                    .foregroundColor(FPColors.textSecondary)
+                            }
+
+                            Spacer()
+                        }
+                        .padding(FPSpacing.md)
+                        .background(FPColors.surface)
+                        .cornerRadius(FPRadius.md)
+
+                        // Profiles
+                        ForEach(profiles) { profile in
+                            ProfileOptionCard(
+                                profile: profile,
+                                isSelected: selectedProfileId == profile.id,
+                                onSelect: { selectedProfileId = profile.id }
+                            )
+                        }
+
+                        // Assign button
+                        if let profileId = selectedProfileId {
+                            Button {
+                                Task {
+                                    isAssigning = true
+                                    try? await APIClient.shared.assignProfile(profileId: profileId, deviceId: device.id)
+                                    isAssigning = false
+                                    onAssigned()
+                                    dismiss()
+                                }
+                            } label: {
+                                HStack {
+                                    if isAssigning {
+                                        ProgressView()
+                                            .tint(.white)
+                                    }
+                                    Text("Apply Profile")
+                                }
+                            }
+                            .buttonStyle(FPPrimaryButtonStyle())
+                            .disabled(isAssigning)
+                            .padding(.top, FPSpacing.md)
+                        }
+                    }
+                    .padding(FPSpacing.md)
+                }
+            }
+            .navigationTitle("Choose Profile")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+        }
+    }
+}
+
+struct ProfileOptionCard: View {
+    let profile: Profile
+    let isSelected: Bool
+    let onSelect: () -> Void
+
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: FPSpacing.md) {
+                // Icon
+                ZStack {
+                    Circle()
+                        .fill(isSelected ? FPColors.primary : FPColors.surfaceSecondary)
+                        .frame(width: 44, height: 44)
+
+                    Image(systemName: "shield.fill")
+                        .foregroundColor(isSelected ? .white : FPColors.textSecondary)
+                }
+
+                // Info
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(profile.name)
+                        .font(FPTypography.headline)
+                        .foregroundColor(FPColors.textPrimary)
+
+                    Text(profile.description)
+                        .font(FPTypography.footnote)
+                        .foregroundColor(FPColors.textSecondary)
+                        .lineLimit(2)
+                }
+
+                Spacer()
+
+                // Checkmark
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(FPColors.primary)
+                        .font(.title2)
+                }
+            }
+            .padding(FPSpacing.md)
+            .background(
+                RoundedRectangle(cornerRadius: FPRadius.md)
+                    .fill(FPColors.surface)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: FPRadius.md)
+                            .stroke(isSelected ? FPColors.primary : FPColors.border, lineWidth: isSelected ? 2 : 1)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Device Map View
 
 struct DeviceMapView: View {
     let device: Device
@@ -221,33 +434,19 @@ struct DeviceMapView: View {
 
     var body: some View {
         NavigationStack {
-            VStack {
+            ZStack {
                 if device.hasLocation, let lat = device.latitude, let lon = device.longitude {
                     Map {
                         Marker(device.name, coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon))
+                            .tint(FPColors.primary)
                     }
                     .mapStyle(.standard)
                 } else {
-                    VStack(spacing: 20) {
-                        Image(systemName: "location.slash")
-                            .font(.system(size: 60))
-                            .foregroundColor(.gray.opacity(0.5))
-
-                        Text("No Location Data")
-                            .font(.title2)
-                            .fontWeight(.semibold)
-
-                        Text("Location will appear after the device checks in")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    #if os(iOS)
-                    .background(Color(.systemGroupedBackground))
-                    #else
-                    .background(Color(nsColor: .windowBackgroundColor))
-                    #endif
+                    FPEmptyState(
+                        icon: "location.slash",
+                        title: "No Location Data",
+                        subtitle: "Location will appear after the device checks in with location services enabled."
+                    )
                 }
             }
             .navigationTitle(device.name)
@@ -256,9 +455,7 @@ struct DeviceMapView: View {
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") {
-                        dismiss()
-                    }
+                    Button("Close") { dismiss() }
                 }
             }
         }

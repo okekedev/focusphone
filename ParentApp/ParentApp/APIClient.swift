@@ -26,7 +26,7 @@ class APIClient {
     #if DEBUG
     private let baseURL = "http://localhost:8000/api"
     #else
-    private let baseURL = "https://your-production-url.com/api"
+    private let baseURL = "https://focusphone-api.orangehill-4bbb582f.eastus.azurecontainerapps.io/api"
     #endif
 
     private var token: String?

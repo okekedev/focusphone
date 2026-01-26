@@ -7,14 +7,14 @@ Uses certificate-based authentication (required for MDM).
 
 import os
 import ssl
+import base64
+import tempfile
 from pathlib import Path
 from httpx import AsyncClient
 from typing import Optional
 
 # Certificate paths (relative to backend/certs/)
 CERTS_DIR = Path(__file__).parent.parent / "certs"
-MDM_PUSH_CERT = os.getenv("MDM_PUSH_CERT", str(CERTS_DIR / "mdm_push_cert.pem"))
-MDM_PUSH_KEY = os.getenv("MDM_PUSH_KEY", str(CERTS_DIR / "mdm_push_key.pem"))
 
 # MDM Topic - extracted from the push certificate
 # Format: com.apple.mgmt.External.<uuid>
@@ -24,13 +24,71 @@ MDM_TOPIC = os.getenv("MDM_TOPIC", "com.apple.mgmt.External.461f409a-d81a-4b5e-a
 APNS_PRODUCTION = os.getenv("APNS_PRODUCTION", "true").lower() == "true"
 APNS_HOST = "api.push.apple.com" if APNS_PRODUCTION else "api.sandbox.push.apple.com"
 
+# Temp file paths for decoded certificates
+_temp_cert_path: Optional[str] = None
+_temp_key_path: Optional[str] = None
+
+
+def _get_cert_paths() -> tuple[str, str]:
+    """
+    Get paths to MDM push certificate and key.
+
+    Supports three modes:
+    1. Base64-encoded env vars (MDM_PUSH_CERT_B64, MDM_PUSH_KEY_B64) - for cloud deployment
+    2. File path env vars (MDM_PUSH_CERT, MDM_PUSH_KEY) - for custom paths
+    3. Default local paths (backend/certs/) - for local development
+    """
+    global _temp_cert_path, _temp_key_path
+
+    # Check for base64-encoded certificates in env vars
+    cert_b64 = os.getenv("MDM_PUSH_CERT_B64")
+    key_b64 = os.getenv("MDM_PUSH_KEY_B64")
+
+    if cert_b64 and key_b64:
+        # Decode and write to temp files (only once)
+        if not _temp_cert_path or not _temp_key_path:
+            # Create temp directory for certs
+            temp_dir = tempfile.mkdtemp(prefix="mdm_certs_")
+
+            _temp_cert_path = os.path.join(temp_dir, "mdm_push_cert.pem")
+            _temp_key_path = os.path.join(temp_dir, "mdm_push_key.pem")
+
+            # Decode and write cert
+            cert_data = base64.b64decode(cert_b64)
+            with open(_temp_cert_path, "wb") as f:
+                f.write(cert_data)
+
+            # Decode and write key
+            key_data = base64.b64decode(key_b64)
+            with open(_temp_key_path, "wb") as f:
+                f.write(key_data)
+
+            # Set permissions
+            os.chmod(_temp_key_path, 0o600)
+
+            print(f"MDM certificates decoded from environment variables")
+
+        return _temp_cert_path, _temp_key_path
+
+    # Check for file path env vars
+    cert_path = os.getenv("MDM_PUSH_CERT")
+    key_path = os.getenv("MDM_PUSH_KEY")
+
+    if cert_path and key_path:
+        return cert_path, key_path
+
+    # Default to local paths
+    return str(CERTS_DIR / "mdm_push_cert.pem"), str(CERTS_DIR / "mdm_push_key.pem")
+
 
 def get_ssl_context() -> ssl.SSLContext:
     """Create SSL context with MDM push certificate"""
+    cert_path, key_path = _get_cert_paths()
+
     ctx = ssl.create_default_context()
     ctx.load_cert_chain(
-        certfile=MDM_PUSH_CERT,
-        keyfile=MDM_PUSH_KEY
+        certfile=cert_path,
+        keyfile=key_path
     )
     return ctx
 
@@ -55,12 +113,14 @@ async def send_push_notification(
         print("Missing push token or push magic")
         return False
 
+    cert_path, key_path = _get_cert_paths()
+
     # Check certificate files exist
-    if not os.path.exists(MDM_PUSH_CERT):
-        print(f"MDM push certificate not found: {MDM_PUSH_CERT}")
+    if not os.path.exists(cert_path):
+        print(f"MDM push certificate not found: {cert_path}")
         return False
-    if not os.path.exists(MDM_PUSH_KEY):
-        print(f"MDM push key not found: {MDM_PUSH_KEY}")
+    if not os.path.exists(key_path):
+        print(f"MDM push key not found: {key_path}")
         return False
 
     # MDM push payload - just contains the push magic

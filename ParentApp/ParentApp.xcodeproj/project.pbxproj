@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		6A2783BAD4BEE1F68A91A846 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = D628DB025D84C26AE9EAE7CB /* Theme.swift */; };
 		A100000100000001 /* ParentAppApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000200000001 /* ParentAppApp.swift */; };
 		A100000100000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000200000002 /* ContentView.swift */; };
 		A100000100000003 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000200000003 /* Models.swift */; };
@@ -34,6 +35,7 @@
 		A100000200000010 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A100000200000011 /* ParentApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ParentApp.entitlements; sourceTree = "<group>"; };
 		A100000300000001 /* ParentApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ParentApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D628DB025D84C26AE9EAE7CB /* Theme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -66,6 +68,7 @@
 				A100000500000004 /* Views */,
 				A100000200000010 /* Assets.xcassets */,
 				A100000200000011 /* ParentApp.entitlements */,
+				D628DB025D84C26AE9EAE7CB /* Theme.swift */,
 			);
 			path = ParentApp;
 			sourceTree = "<group>";
@@ -169,6 +172,7 @@
 				A100000100000008 /* DevicesView.swift in Sources */,
 				A100000100000009 /* EnrollView.swift in Sources */,
 				A10000010000000A /* AccountView.swift in Sources */,
+				6A2783BAD4BEE1F68A91A846 /* Theme.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
