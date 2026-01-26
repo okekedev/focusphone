@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+.env
+*.egg-info/
+dist/
+build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Database
+*.db
+*.sqlite3
+
+# Logs
+*.log
+
+# Secrets - keep these local only
+backend/certs/mdm_push_key.pem
+backend/certs/encrypt_key.pem
+backend/certs/mdm_signed_binary.p7
+backend/certs/mdmcert_request.json
+backend/certs/push_certificate_request.b64
+backend/certs/push_certificate_request.plist
+
+# Node (frontend)
+node_modules/
+.next/
+out/
+
+# Xcode
+*.xcuserdata
+DerivedData/
+*.xcworkspace
+!*.xcworkspace/contents.xcworkspacedata
+Pods/
+.build/
+*.swiftpm/
