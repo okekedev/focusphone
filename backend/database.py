@@ -160,6 +160,9 @@ class EnrollmentToken(Base):
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
     owner: Mapped["User"] = relationship(back_populates="enrollment_tokens")
 
+    profile_id: Mapped[Optional[str]] = mapped_column(ForeignKey("profiles.id"), nullable=True)
+    profile: Mapped[Optional["Profile"]] = relationship()
+
     @property
     def is_valid(self) -> bool:
         return not self.is_used and datetime.utcnow() < self.expires_at

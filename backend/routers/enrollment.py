@@ -29,12 +29,18 @@ class TokenResponse(BaseModel):
     expiresAt: datetime
     enrollmentURL: str
     qrCodeURL: str
+    profileId: str | None = None
+
+
+class CreateTokenRequest(BaseModel):
+    profileId: str | None = None
 
 
 # MARK: - Routes
 
 @router.post("/token", response_model=TokenResponse)
 async def create_enrollment_token(
+    request: CreateTokenRequest = CreateTokenRequest(),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -43,6 +49,7 @@ async def create_enrollment_token(
         id=str(uuid.uuid4()),
         token=str(uuid.uuid4()),
         owner_id=user.id,
+        profile_id=request.profileId,
         expires_at=datetime.utcnow() + timedelta(hours=1)
     )
 
@@ -57,7 +64,8 @@ async def create_enrollment_token(
         token=token.token,
         expiresAt=token.expires_at,
         enrollmentURL=enrollment_url,
-        qrCodeURL=qr_url
+        qrCodeURL=qr_url,
+        profileId=token.profile_id
     )
 
 
