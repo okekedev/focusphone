@@ -160,8 +160,8 @@ class EnrollmentToken(Base):
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
     owner: Mapped["User"] = relationship(back_populates="enrollment_tokens")
 
-    profile_id: Mapped[Optional[str]] = mapped_column(ForeignKey("profiles.id"), nullable=True)
-    profile: Mapped[Optional["Profile"]] = relationship()
+    profile_id: Mapped[Optional[str]] = mapped_column(ForeignKey("restriction_profiles.id"), nullable=True)
+    profile: Mapped[Optional["RestrictionProfile"]] = relationship()
 
     @property
     def is_valid(self) -> bool:
