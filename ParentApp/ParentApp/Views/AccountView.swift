@@ -2,6 +2,13 @@ import SwiftUI
 
 struct AccountView: View {
     @EnvironmentObject var authManager: AuthManager
+    @State private var activeSheet: InfoSheetType?
+
+    enum InfoSheetType: Identifiable {
+        case privacy, install, remove
+
+        var id: Self { self }
+    }
 
     var body: some View {
         NavigationStack {
@@ -16,6 +23,9 @@ struct AccountView: View {
                         // Account info
                         accountInfoSection
 
+                        // Learn more section
+                        learnMoreSection
+
                         // App info
                         appInfoSection
 
@@ -26,6 +36,16 @@ struct AccountView: View {
                 }
             }
             .navigationTitle("Account")
+            .sheet(item: $activeSheet) { sheet in
+                switch sheet {
+                case .privacy:
+                    PrivacySheet()
+                case .install:
+                    InstallSheet()
+                case .remove:
+                    RemoveSheet()
+                }
+            }
         }
     }
 
@@ -99,6 +119,51 @@ struct AccountView: View {
                         title: "Member since",
                         value: createdAt.formatted(date: .abbreviated, time: .omitted)
                     )
+                }
+            }
+        }
+    }
+
+    // MARK: - Learn More Section
+
+    private var learnMoreSection: some View {
+        FPCard {
+            VStack(alignment: .leading, spacing: FPSpacing.sm) {
+                Text("Learn More")
+                    .font(FPTypography.caption)
+                    .foregroundColor(FPColors.textTertiary)
+                    .textCase(.uppercase)
+                    .padding(.bottom, FPSpacing.xs)
+
+                LearnMoreRow(
+                    icon: "eye.slash.fill",
+                    title: "Privacy",
+                    subtitle: "What we can and cannot see",
+                    color: FPColors.primary
+                ) {
+                    activeSheet = .privacy
+                }
+
+                Divider()
+
+                LearnMoreRow(
+                    icon: "arrow.down.doc.fill",
+                    title: "How to Install",
+                    subtitle: "Step-by-step enrollment guide",
+                    color: FPColors.secondary
+                ) {
+                    activeSheet = .install
+                }
+
+                Divider()
+
+                LearnMoreRow(
+                    icon: "arrow.uturn.backward.circle.fill",
+                    title: "How to Remove",
+                    subtitle: "Unenroll a device",
+                    color: FPColors.textSecondary
+                ) {
+                    activeSheet = .remove
                 }
             }
         }
@@ -246,6 +311,49 @@ struct AccountRow: View {
                 .foregroundColor(FPColors.textPrimary)
                 .lineLimit(1)
         }
+    }
+}
+
+// MARK: - Learn More Row
+
+struct LearnMoreRow: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+    let color: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: FPSpacing.md) {
+                ZStack {
+                    Circle()
+                        .fill(color.opacity(0.12))
+                        .frame(width: 40, height: 40)
+
+                    Image(systemName: icon)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(color)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(FPTypography.body)
+                        .foregroundColor(FPColors.textPrimary)
+
+                    Text(subtitle)
+                        .font(FPTypography.caption)
+                        .foregroundColor(FPColors.textSecondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(FPColors.textTertiary)
+            }
+        }
+        .buttonStyle(.plain)
     }
 }
 
