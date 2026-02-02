@@ -7,12 +7,17 @@ Builds configuration profiles for device enrollment and restrictions.
 import plistlib
 import uuid
 import os
+import base64
 
 # Organization settings
 ORG_NAME = os.getenv("MDM_ORG_NAME", "FocusPhone")
 ORG_IDENTIFIER = os.getenv("MDM_ORG_IDENTIFIER", "com.focusphone")
 SERVER_URL = os.getenv("MDM_SERVER_URL", "https://your-mdm-server.com")
 TOPIC = os.getenv("MDM_TOPIC", "com.apple.mgmt.External.461f409a-d81a-4b5e-a009-3fb8f607aadc")
+
+# Client identity certificate (PKCS12) - base64 encoded
+MDM_IDENTITY_CERT_B64 = os.getenv("MDM_IDENTITY_CERT_B64", "")
+MDM_IDENTITY_CERT_PASSWORD = os.getenv("MDM_IDENTITY_CERT_PASSWORD", "")
 
 
 def build_enrollment_profile() -> bytes:
@@ -23,7 +28,22 @@ def build_enrollment_profile() -> bytes:
     """
     profile_uuid = str(uuid.uuid4()).upper()
     mdm_payload_uuid = str(uuid.uuid4()).upper()
-    scep_payload_uuid = str(uuid.uuid4()).upper()
+    identity_payload_uuid = str(uuid.uuid4()).upper()
+
+    payloads = []
+
+    # PKCS12 Identity Certificate payload (if configured)
+    if MDM_IDENTITY_CERT_B64:
+        identity_payload = {
+            "PayloadType": "com.apple.security.pkcs12",
+            "PayloadVersion": 1,
+            "PayloadIdentifier": f"{ORG_IDENTIFIER}.identity",
+            "PayloadUUID": identity_payload_uuid,
+            "PayloadDisplayName": "MDM Identity Certificate",
+            "PayloadContent": base64.b64decode(MDM_IDENTITY_CERT_B64),
+            "Password": MDM_IDENTITY_CERT_PASSWORD,
+        }
+        payloads.append(identity_payload)
 
     # MDM payload - configures MDM connection
     mdm_payload = {
@@ -43,6 +63,12 @@ def build_enrollment_profile() -> bytes:
         "UseDevelopmentAPNS": False,
     }
 
+    # Reference the identity certificate if configured
+    if MDM_IDENTITY_CERT_B64:
+        mdm_payload["IdentityCertificateUUID"] = identity_payload_uuid
+
+    payloads.append(mdm_payload)
+
     # Main profile
     profile = {
         "PayloadType": "Configuration",
@@ -53,7 +79,7 @@ def build_enrollment_profile() -> bytes:
         "PayloadDescription": "This profile will enroll your device for management.",
         "PayloadOrganization": ORG_NAME,
         "PayloadRemovalDisallowed": False,  # User can remove enrollment
-        "PayloadContent": [mdm_payload],
+        "PayloadContent": payloads,
     }
 
     return plistlib.dumps(profile)
