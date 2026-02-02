@@ -17,8 +17,16 @@ struct DevicesView: View {
                 FPColors.background.ignoresSafeArea()
 
                 Group {
-                    if isLoading {
+                    if isLoading && devices.isEmpty {
                         FPLoadingView()
+                    } else if let error = error, devices.isEmpty {
+                        // Error state - only show when we have no cached data
+                        FPErrorState(
+                            error: error,
+                            retryAction: {
+                                Task { await loadData() }
+                            }
+                        )
                     } else if devices.isEmpty {
                         FPEmptyState(
                             icon: "iphone.slash",
@@ -41,6 +49,7 @@ struct DevicesView: View {
                         Image(systemName: "arrow.clockwise")
                             .foregroundColor(FPColors.primary)
                     }
+                    .disabled(isLoading)
                 }
             }
             .task {
@@ -59,6 +68,16 @@ struct DevicesView: View {
                     ProfilePickerView(device: device, profiles: profiles) {
                         Task { await loadData() }
                     }
+                }
+            }
+            // Show error banner when we have data but load failed
+            .overlay(alignment: .top) {
+                if let error = error, !devices.isEmpty {
+                    ErrorBanner(message: error) {
+                        self.error = nil
+                    }
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .animation(.easeInOut, value: error)
                 }
             }
         }
@@ -87,20 +106,106 @@ struct DevicesView: View {
     }
 
     private func loadData() async {
-        isLoading = devices.isEmpty
+        // Only show full loading state if we have no data
+        if devices.isEmpty {
+            isLoading = true
+        }
         error = nil
 
         do {
             async let devicesTask = APIClient.shared.getDevices()
             async let profilesTask = APIClient.shared.getProfiles()
 
-            devices = try await devicesTask
-            profiles = try await profilesTask
+            let (loadedDevices, loadedProfiles) = try await (devicesTask, profilesTask)
+            devices = loadedDevices
+            profiles = loadedProfiles
+        } catch let apiError as APIError {
+            self.error = apiError.localizedDescription
         } catch {
             self.error = error.localizedDescription
         }
 
         isLoading = false
+    }
+}
+
+// MARK: - Error Banner
+
+struct ErrorBanner: View {
+    let message: String
+    let onDismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: FPSpacing.sm) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundColor(FPColors.warning)
+
+            Text(message)
+                .font(FPTypography.footnote)
+                .foregroundColor(FPColors.textPrimary)
+                .lineLimit(2)
+
+            Spacer()
+
+            Button(action: onDismiss) {
+                Image(systemName: "xmark")
+                    .font(.caption)
+                    .foregroundColor(FPColors.textSecondary)
+            }
+        }
+        .padding(FPSpacing.sm)
+        .background(
+            RoundedRectangle(cornerRadius: FPRadius.sm)
+                .fill(FPColors.warning.opacity(0.1))
+                .overlay(
+                    RoundedRectangle(cornerRadius: FPRadius.sm)
+                        .stroke(FPColors.warning.opacity(0.3), lineWidth: 1)
+                )
+        )
+        .padding(.horizontal, FPSpacing.md)
+        .padding(.top, FPSpacing.xs)
+    }
+}
+
+// MARK: - Error State View
+
+struct FPErrorState: View {
+    let error: String
+    let retryAction: () -> Void
+
+    var body: some View {
+        VStack(spacing: FPSpacing.lg) {
+            ZStack {
+                Circle()
+                    .fill(FPColors.error.opacity(0.1))
+                    .frame(width: 80, height: 80)
+
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 36))
+                    .foregroundColor(FPColors.error)
+            }
+
+            VStack(spacing: FPSpacing.sm) {
+                Text("Something Went Wrong")
+                    .font(FPTypography.title3)
+                    .foregroundColor(FPColors.textPrimary)
+
+                Text(error)
+                    .font(FPTypography.subheadline)
+                    .foregroundColor(FPColors.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, FPSpacing.xl)
+            }
+
+            Button(action: retryAction) {
+                HStack(spacing: FPSpacing.xs) {
+                    Image(systemName: "arrow.clockwise")
+                    Text("Try Again")
+                }
+            }
+            .buttonStyle(FPPrimaryButtonStyle())
+        }
+        .padding(FPSpacing.xl)
     }
 }
 
@@ -226,9 +331,9 @@ struct DeviceCard: View {
     private var batteryIcon: String {
         guard let level = device.batteryLevel else { return "battery.0" }
         switch level {
-        case 0..<20: return "battery.25"
-        case 20..<50: return "battery.50"
-        case 50..<80: return "battery.75"
+        case 0..<25: return "battery.25"
+        case 25..<50: return "battery.50"
+        case 50..<75: return "battery.75"
         default: return "battery.100"
         }
     }
@@ -252,7 +357,6 @@ struct DeviceCard: View {
         return formatter.localizedString(for: date, relativeTo: Date())
     }
 }
-
 // MARK: - Stat Item
 
 struct StatItem: View {
@@ -290,6 +394,7 @@ struct ProfilePickerView: View {
 
     @Environment(\.dismiss) var dismiss
     @State private var isAssigning = false
+    @State private var assignError: String?
     @State private var selectedProfileId: String?
 
     var body: some View {
@@ -333,15 +438,28 @@ struct ProfilePickerView: View {
                             )
                         }
 
+                        // Error message
+                        if let error = assignError {
+                            HStack(spacing: FPSpacing.xs) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(FPColors.error)
+                                Text(error)
+                                    .font(FPTypography.footnote)
+                                    .foregroundColor(FPColors.error)
+                            }
+                            .padding(FPSpacing.sm)
+                            .frame(maxWidth: .infinity)
+                            .background(
+                                RoundedRectangle(cornerRadius: FPRadius.sm)
+                                    .fill(FPColors.error.opacity(0.1))
+                            )
+                        }
+
                         // Assign button
                         if let profileId = selectedProfileId {
                             Button {
                                 Task {
-                                    isAssigning = true
-                                    try? await APIClient.shared.assignProfile(profileId: profileId, deviceId: device.id)
-                                    isAssigning = false
-                                    onAssigned()
-                                    dismiss()
+                                    await assignProfile(profileId: profileId)
                                 }
                             } label: {
                                 HStack {
@@ -370,6 +488,21 @@ struct ProfilePickerView: View {
                 }
             }
         }
+    }
+
+    private func assignProfile(profileId: String) async {
+        isAssigning = true
+        assignError = nil
+
+        do {
+            try await APIClient.shared.assignProfile(profileId: profileId, deviceId: device.id)
+            onAssigned()
+            dismiss()
+        } catch {
+            assignError = error.localizedDescription
+        }
+
+        isAssigning = false
     }
 }
 

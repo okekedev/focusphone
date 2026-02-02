@@ -81,7 +81,9 @@ jobs:
             az containerapp update \
               --name focusphone-api \
               --resource-group focusphone-rg \
-              --image ${{ env.REGISTRY }}/${{ github.repository }}/backend:latest
+              --image ${{ env.REGISTRY }}/${{ github.repository }}/backend:latest \
+              --min-replicas 1 \
+              --max-replicas 5
 
       - name: Deploy Frontend
         uses: azure/cli@v2
@@ -90,4 +92,6 @@ jobs:
             az containerapp update \
               --name focusphone-web \
               --resource-group focusphone-rg \
-              --image ${{ env.REGISTRY }}/${{ github.repository }}/frontend:latest
+              --image ${{ env.REGISTRY }}/${{ github.repository }}/frontend:latest \
+              --min-replicas 1 \
+              --max-replicas 5

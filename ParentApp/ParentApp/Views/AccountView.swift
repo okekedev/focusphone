@@ -97,7 +97,7 @@ struct AccountView: View {
                     AccountRow(
                         icon: "calendar",
                         title: "Member since",
-                        value: createdAt.formatted(date: .long, time: .omitted)
+                        value: createdAt.formatted(date: .abbreviated, time: .omitted)
                     )
                 }
             }
@@ -115,7 +115,7 @@ struct AccountView: View {
                     .textCase(.uppercase)
                     .padding(.bottom, FPSpacing.xs)
 
-                AccountRow(icon: "info.circle", title: "Version", value: "1.0.0")
+                AccountRow(icon: "info.circle", title: "Version", value: AppConfig.fullVersion)
 
                 Divider()
 
@@ -183,19 +183,20 @@ struct AccountView: View {
 
     private var providerIcon: String {
         switch authManager.currentUser?.provider {
-        case "apple": return "apple.logo"
-        case "google": return "g.circle.fill"
-        case "microsoft": return "window.horizontal.closed"
+        case .apple: return "apple.logo"
+        case .google: return "g.circle.fill"
+        case .microsoft: return "window.horizontal.closed"
+        case .dev: return "hammer.fill"
         default: return "person.circle"
         }
     }
 
     private var providerName: String {
         switch authManager.currentUser?.provider {
-        case "apple": return "Apple"
-        case "google": return "Google"
-        case "microsoft": return "Microsoft"
-        case "dev": return "Dev Mode"
+        case .apple: return "Apple"
+        case .google: return "Google"
+        case .microsoft: return "Microsoft"
+        case .dev: return "Dev Mode"
         default: return "Unknown"
         }
     }

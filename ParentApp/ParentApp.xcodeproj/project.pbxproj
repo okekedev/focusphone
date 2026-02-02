@@ -8,11 +8,13 @@
 
 /* Begin PBXBuildFile section */
 		6A2783BAD4BEE1F68A91A846 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = D628DB025D84C26AE9EAE7CB /* Theme.swift */; };
+		A10000010000000C /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000C /* AppConfig.swift */; };
 		A100000100000001 /* ParentAppApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000200000001 /* ParentAppApp.swift */; };
 		A100000100000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000200000002 /* ContentView.swift */; };
 		A100000100000003 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000200000003 /* Models.swift */; };
 		A100000100000004 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000200000004 /* APIClient.swift */; };
 		A100000100000005 /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000200000005 /* AuthManager.swift */; };
+		A10000010000000B /* EnrollmentManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000B /* EnrollmentManager.swift */; };
 		A100000100000006 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000200000006 /* LoginView.swift */; };
 		A100000100000007 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000200000007 /* MainTabView.swift */; };
 		A100000100000008 /* DevicesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000200000008 /* DevicesView.swift */; };
@@ -22,11 +24,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		A10000020000000C /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
 		A100000200000001 /* ParentAppApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParentAppApp.swift; sourceTree = "<group>"; };
 		A100000200000002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A100000200000003 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		A100000200000004 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		A100000200000005 /* AuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
+		A10000020000000B /* EnrollmentManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnrollmentManager.swift; sourceTree = "<group>"; };
 		A100000200000006 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		A100000200000007 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
 		A100000200000008 /* DevicesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicesView.swift; sourceTree = "<group>"; };
@@ -65,6 +69,8 @@
 				A100000200000003 /* Models.swift */,
 				A100000200000004 /* APIClient.swift */,
 				A100000200000005 /* AuthManager.swift */,
+				A10000020000000B /* EnrollmentManager.swift */,
+				A10000020000000C /* AppConfig.swift */,
 				A100000500000004 /* Views */,
 				A100000200000010 /* Assets.xcassets */,
 				A100000200000011 /* ParentApp.entitlements */,
@@ -167,6 +173,8 @@
 				A100000100000003 /* Models.swift in Sources */,
 				A100000100000004 /* APIClient.swift in Sources */,
 				A100000100000005 /* AuthManager.swift in Sources */,
+				A10000010000000B /* EnrollmentManager.swift in Sources */,
+				A10000010000000C /* AppConfig.swift in Sources */,
 				A100000100000006 /* LoginView.swift in Sources */,
 				A100000100000007 /* MainTabView.swift in Sources */,
 				A100000100000008 /* DevicesView.swift in Sources */,

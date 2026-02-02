@@ -37,7 +37,9 @@ struct LoginView: View {
             }
         }
         .alert("Sign In Failed", isPresented: $showError) {
-            Button("OK", role: .cancel) {}
+            Button("OK", role: .cancel) {
+                authManager.clearError()
+            }
         } message: {
             Text(authManager.error ?? "Unknown error occurred")
         }
@@ -144,9 +146,7 @@ struct LoginView: View {
             #if DEBUG
             Button {
                 Task {
-                    APIClient.shared.setToken("dev-token")
-                    APIClient.shared.setProvider("apple")
-                    await authManager.checkAuthStatus()
+                    await authManager.signInWithDevMode()
                 }
             } label: {
                 HStack(spacing: FPSpacing.xs) {

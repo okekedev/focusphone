@@ -7,7 +7,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import uuid
 import os
 import io
@@ -50,7 +50,7 @@ async def create_enrollment_token(
         token=str(uuid.uuid4()),
         owner_id=user.id,
         profile_id=request.profileId,
-        expires_at=datetime.utcnow() + timedelta(hours=1)
+        expires_at=datetime.now(timezone.utc) + timedelta(hours=1)
     )
 
     db.add(token)
@@ -93,7 +93,8 @@ async def get_enrollment_token(
         token=enrollment_token.token,
         expiresAt=enrollment_token.expires_at,
         enrollmentURL=enrollment_url,
-        qrCodeURL=qr_url
+        qrCodeURL=qr_url,
+        profileId=enrollment_token.profile_id
     )
 
 

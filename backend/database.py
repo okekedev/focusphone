@@ -5,8 +5,13 @@ Database configuration and models
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy import String, Boolean, DateTime, ForeignKey, Text, LargeBinary
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List
+
+
+def utc_now() -> datetime:
+    """Return current UTC datetime (timezone-aware)."""
+    return datetime.now(timezone.utc)
 
 from config import get_settings
 
@@ -50,7 +55,7 @@ class User(Base):
     provider: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # "microsoft", "google", "apple"
     phone_number: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     phone_verified: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
 
     devices: Mapped[List["Device"]] = relationship(back_populates="owner")
     enrollment_tokens: Mapped[List["EnrollmentToken"]] = relationship(back_populates="owner")
@@ -80,8 +85,8 @@ class Device(Base):
     status: Mapped[str] = mapped_column(String(50), default="pending")
     # pending -> enrolled -> managed -> unenrolling -> removed
 
-    enrolled_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    last_checkin: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    enrolled_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
+    last_checkin: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
 
     owner_id: Mapped[Optional[str]] = mapped_column(ForeignKey("users.id"), nullable=True)
     owner: Mapped[Optional["User"]] = relationship(back_populates="devices")
@@ -105,8 +110,8 @@ class RestrictionProfile(Base):
     allow_camera: Mapped[bool] = mapped_column(Boolean, default=False)
     allow_photos: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
 
     devices: Mapped[List["Device"]] = relationship(back_populates="profile")
 
@@ -137,7 +142,7 @@ class MDMCommand(Base):
     status: Mapped[str] = mapped_column(String(50), default="pending")
     # pending -> sent -> acknowledged -> failed
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
     sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     acknowledged_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -152,7 +157,7 @@ class EnrollmentToken(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     token: Mapped[str] = mapped_column(String(255), unique=True, index=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
     expires_at: Mapped[datetime] = mapped_column(DateTime)
     used_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     is_used: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -165,4 +170,4 @@ class EnrollmentToken(Base):
 
     @property
     def is_valid(self) -> bool:
-        return not self.is_used and datetime.utcnow() < self.expires_at
+        return not self.is_used and utc_now() < self.expires_at

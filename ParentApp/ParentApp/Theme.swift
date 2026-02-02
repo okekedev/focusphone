@@ -23,14 +23,14 @@ struct FPColors {
     static let warning = Color(hex: "F59E0B")
     static let error = Color(hex: "EF4444")
 
-    // Neutrals
-    static let background = Color(hex: "F8FAFC")
+    // Neutrals - purple-tinted
+    static let background = Color(hex: "F8F8FC")
     static let surface = Color.white
-    static let surfaceSecondary = Color(hex: "F1F5F9")
-    static let textPrimary = Color(hex: "0F172A")
-    static let textSecondary = Color(hex: "64748B")
-    static let textTertiary = Color(hex: "94A3B8")
-    static let border = Color(hex: "E2E8F0")
+    static let surfaceSecondary = Color(hex: "F0F0F8")
+    static let textPrimary = Color(hex: "1E1B4B")      // Dark indigo
+    static let textSecondary = Color(hex: "4B4678")    // Medium purple-grey
+    static let textTertiary = Color(hex: "8784A8")     // Light purple-grey
+    static let border = Color(hex: "E0E0F0")
 
     // Gradients
     static let primaryGradient = LinearGradient(
@@ -177,17 +177,26 @@ struct FPCard<Content: View>: View {
     }
 }
 
-/// Status badge
+/// Status badge - supports both String and DeviceStatus
 struct FPStatusBadge: View {
-    let status: String
+    let status: DeviceStatus
+
+    init(status: DeviceStatus) {
+        self.status = status
+    }
+
+    init(status: String) {
+        self.status = DeviceStatus(rawValue: status.lowercased()) ?? .unknown
+    }
 
     private var config: (color: Color, icon: String) {
-        switch status.lowercased() {
-        case "managed": return (FPColors.success, "checkmark.circle.fill")
-        case "enrolled": return (FPColors.primary, "arrow.triangle.2.circlepath")
-        case "pending": return (FPColors.warning, "clock.fill")
-        case "offline": return (FPColors.textTertiary, "wifi.slash")
-        default: return (FPColors.textTertiary, "questionmark.circle")
+        switch status {
+        case .managed: return (FPColors.success, "checkmark.circle.fill")
+        case .enrolled: return (FPColors.primary, "arrow.triangle.2.circlepath")
+        case .pending: return (FPColors.warning, "clock.fill")
+        case .unenrolling: return (FPColors.warning, "arrow.uturn.left.circle")
+        case .removed: return (FPColors.textTertiary, "minus.circle")
+        case .unknown: return (FPColors.textTertiary, "questionmark.circle")
         }
     }
 
@@ -195,7 +204,7 @@ struct FPStatusBadge: View {
         HStack(spacing: 4) {
             Image(systemName: config.icon)
                 .font(.system(size: 10, weight: .semibold))
-            Text(status.capitalized)
+            Text(status.rawValue.capitalized)
                 .font(FPTypography.caption)
         }
         .foregroundColor(config.color)
