@@ -5,13 +5,13 @@ Database configuration and models
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy import String, Boolean, DateTime, ForeignKey, Text, LargeBinary
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional, List
 
 
 def utc_now() -> datetime:
-    """Return current UTC datetime (timezone-aware)."""
-    return datetime.now(timezone.utc)
+    """Return current UTC datetime (naive, for database compatibility)."""
+    return datetime.utcnow()
 
 from config import get_settings
 
