@@ -81,7 +81,7 @@ jobs:
             az containerapp update \
               --name focusphone-api \
               --resource-group focusphone-rg \
-              --image ${{ env.REGISTRY }}/${{ github.repository }}/backend:latest \
+              --image ${{ env.REGISTRY }}/${{ github.repository }}/backend:${{ github.sha }} \
               --min-replicas 1 \
               --max-replicas 5
 
@@ -92,6 +92,6 @@ jobs:
             az containerapp update \
               --name focusphone-web \
               --resource-group focusphone-rg \
-              --image ${{ env.REGISTRY }}/${{ github.repository }}/frontend:latest \
+              --image ${{ env.REGISTRY }}/${{ github.repository }}/frontend:${{ github.sha }} \
               --min-replicas 1 \
               --max-replicas 5
