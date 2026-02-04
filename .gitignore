@@ -49,3 +49,8 @@ DerivedData/
 Pods/
 .build/
 *.swiftpm/
+
+# Certificate files
+*.p12
+*.pem
+mdm_client_*

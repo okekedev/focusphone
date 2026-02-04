@@ -21,24 +21,6 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-        # Run migrations for new columns (safe to run multiple times)
-        from sqlalchemy import text
-        try:
-            await conn.execute(text(
-                "ALTER TABLE enrollment_tokens ADD COLUMN last_accessed_at TIMESTAMP NULL"
-            ))
-            print("Added column: enrollment_tokens.last_accessed_at")
-        except Exception:
-            pass  # Column already exists
-
-        try:
-            await conn.execute(text(
-                "ALTER TABLE enrollment_tokens ADD COLUMN device_udid VARCHAR(255) NULL"
-            ))
-            print("Added column: enrollment_tokens.device_udid")
-        except Exception:
-            pass  # Column already exists
-
     # Seed default profiles
     from database import async_session, RestrictionProfile
     from sqlalchemy import select

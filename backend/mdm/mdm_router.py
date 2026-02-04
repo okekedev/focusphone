@@ -40,10 +40,6 @@ async def get_enrollment_profile(
     if not enrollment_token or not enrollment_token.is_valid:
         raise HTTPException(status_code=400, detail="Invalid or expired token")
 
-    # Mark token as accessed (for linking during Authenticate)
-    enrollment_token.last_accessed_at = datetime.utcnow()
-    await db.commit()
-
     # Build enrollment profile
     profile_data = build_enrollment_profile()
 
@@ -107,20 +103,24 @@ async def handle_authenticate(plist: dict, db: AsyncSession) -> Response:
     result = await db.execute(select(Device).where(Device.udid == udid))
     device = result.scalar_one_or_none()
 
-    # Find the most recently accessed unused enrollment token
+    # Find the most recently created unused enrollment token
     # This links the device to the user who created the enrollment token
     from datetime import timedelta
-    cutoff = datetime.utcnow() - timedelta(hours=1)  # Token must have been accessed within last hour
+    cutoff = datetime.utcnow() - timedelta(minutes=10)  # Token must have been created within last 10 minutes
     token_result = await db.execute(
         select(EnrollmentToken)
         .where(EnrollmentToken.is_used == False)
-        .where(EnrollmentToken.last_accessed_at != None)
-        .where(EnrollmentToken.last_accessed_at >= cutoff)
-        .where(EnrollmentToken.device_udid == None)  # Not yet linked to a device
-        .order_by(EnrollmentToken.last_accessed_at.desc())
+        .where(EnrollmentToken.expires_at > datetime.utcnow())  # Not expired
+        .where(EnrollmentToken.created_at >= cutoff)  # Recently created
+        .order_by(EnrollmentToken.created_at.desc())
         .limit(1)
     )
     enrollment_token = token_result.scalar_one_or_none()
+
+    if enrollment_token:
+        print(f"Found enrollment token {enrollment_token.id} for device {udid} (profile: {enrollment_token.profile_id})")
+    else:
+        print(f"No matching enrollment token found for device {udid}")
 
     if not device:
         # Create new device record
@@ -142,9 +142,10 @@ async def handle_authenticate(plist: dict, db: AsyncSession) -> Response:
             device.profile_id = enrollment_token.profile_id
             device.status = "pending"
 
-    # Link enrollment token to this device
+    # Mark the token as used now (to prevent other devices from using it)
     if enrollment_token:
-        enrollment_token.device_udid = udid
+        enrollment_token.is_used = True
+        enrollment_token.used_at = datetime.utcnow()
         print(f"Linked device {udid} to enrollment token {enrollment_token.id} (owner: {enrollment_token.owner_id})")
 
     await db.commit()
@@ -174,30 +175,22 @@ async def handle_token_update(plist: dict, db: AsyncSession) -> Response:
         device.last_checkin = datetime.utcnow()
         await db.commit()
 
-        # Find and mark the enrollment token as used
-        token_result = await db.execute(
-            select(EnrollmentToken)
-            .where(EnrollmentToken.device_udid == udid)
-            .where(EnrollmentToken.is_used == False)
-        )
-        enrollment_token = token_result.scalar_one_or_none()
+        print(f"Device {udid} enrolled with profile_id: {device.profile_id}")
 
-        if enrollment_token:
-            enrollment_token.is_used = True
-            enrollment_token.used_at = datetime.utcnow()
-            await db.commit()
-            print(f"Marked enrollment token {enrollment_token.id} as used")
+        # If the device has a profile assigned, queue the restriction profile installation
+        if device.profile_id:
+            profile_result = await db.execute(
+                select(RestrictionProfile).where(RestrictionProfile.id == device.profile_id)
+            )
+            profile = profile_result.scalar_one_or_none()
 
-            # If the token has a profile, queue the restriction profile installation
-            if enrollment_token.profile_id:
-                profile_result = await db.execute(
-                    select(RestrictionProfile).where(RestrictionProfile.id == enrollment_token.profile_id)
-                )
-                profile = profile_result.scalar_one_or_none()
-
-                if profile:
-                    await queue_restriction_profile(device, profile, db)
-                    print(f"Queued restriction profile '{profile.name}' for device {udid}")
+            if profile:
+                await queue_restriction_profile(device, profile, db)
+                print(f"Queued restriction profile '{profile.name}' for device {udid}")
+            else:
+                print(f"Profile {device.profile_id} not found for device {udid}")
+        else:
+            print(f"No profile assigned to device {udid}")
 
     return Response(
         content=plistlib.dumps({}),
