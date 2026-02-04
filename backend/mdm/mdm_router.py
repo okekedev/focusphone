@@ -13,7 +13,7 @@ import plistlib
 import uuid
 from datetime import datetime
 
-from database import get_db, Device, EnrollmentToken, MDMCommand
+from database import get_db, Device, EnrollmentToken, MDMCommand, RestrictionProfile
 from mdm.profile_builder import build_enrollment_profile, build_restriction_profile
 from mdm.apns import send_push_notification
 
@@ -39,6 +39,10 @@ async def get_enrollment_profile(
 
     if not enrollment_token or not enrollment_token.is_valid:
         raise HTTPException(status_code=400, detail="Invalid or expired token")
+
+    # Mark token as accessed (for linking during Authenticate)
+    enrollment_token.last_accessed_at = datetime.utcnow()
+    await db.commit()
 
     # Build enrollment profile
     profile_data = build_enrollment_profile()
@@ -103,6 +107,21 @@ async def handle_authenticate(plist: dict, db: AsyncSession) -> Response:
     result = await db.execute(select(Device).where(Device.udid == udid))
     device = result.scalar_one_or_none()
 
+    # Find the most recently accessed unused enrollment token
+    # This links the device to the user who created the enrollment token
+    from datetime import timedelta
+    cutoff = datetime.utcnow() - timedelta(hours=1)  # Token must have been accessed within last hour
+    token_result = await db.execute(
+        select(EnrollmentToken)
+        .where(EnrollmentToken.is_used == False)
+        .where(EnrollmentToken.last_accessed_at != None)
+        .where(EnrollmentToken.last_accessed_at >= cutoff)
+        .where(EnrollmentToken.device_udid == None)  # Not yet linked to a device
+        .order_by(EnrollmentToken.last_accessed_at.desc())
+        .limit(1)
+    )
+    enrollment_token = token_result.scalar_one_or_none()
+
     if not device:
         # Create new device record
         device = Device(
@@ -111,8 +130,24 @@ async def handle_authenticate(plist: dict, db: AsyncSession) -> Response:
             name=f"Device-{udid[:8]}",
             status="pending"
         )
+        # Link to owner if we found an enrollment token
+        if enrollment_token:
+            device.owner_id = enrollment_token.owner_id
+            device.profile_id = enrollment_token.profile_id
         db.add(device)
-        await db.commit()
+    else:
+        # Update existing device ownership if we have a new enrollment token
+        if enrollment_token:
+            device.owner_id = enrollment_token.owner_id
+            device.profile_id = enrollment_token.profile_id
+            device.status = "pending"
+
+    # Link enrollment token to this device
+    if enrollment_token:
+        enrollment_token.device_udid = udid
+        print(f"Linked device {udid} to enrollment token {enrollment_token.id} (owner: {enrollment_token.owner_id})")
+
+    await db.commit()
 
     # Return empty plist to accept enrollment
     return Response(
@@ -139,10 +174,71 @@ async def handle_token_update(plist: dict, db: AsyncSession) -> Response:
         device.last_checkin = datetime.utcnow()
         await db.commit()
 
+        # Find and mark the enrollment token as used
+        token_result = await db.execute(
+            select(EnrollmentToken)
+            .where(EnrollmentToken.device_udid == udid)
+            .where(EnrollmentToken.is_used == False)
+        )
+        enrollment_token = token_result.scalar_one_or_none()
+
+        if enrollment_token:
+            enrollment_token.is_used = True
+            enrollment_token.used_at = datetime.utcnow()
+            await db.commit()
+            print(f"Marked enrollment token {enrollment_token.id} as used")
+
+            # If the token has a profile, queue the restriction profile installation
+            if enrollment_token.profile_id:
+                profile_result = await db.execute(
+                    select(RestrictionProfile).where(RestrictionProfile.id == enrollment_token.profile_id)
+                )
+                profile = profile_result.scalar_one_or_none()
+
+                if profile:
+                    await queue_restriction_profile(device, profile, db)
+                    print(f"Queued restriction profile '{profile.name}' for device {udid}")
+
     return Response(
         content=plistlib.dumps({}),
         media_type="application/xml"
     )
+
+
+async def queue_restriction_profile(device: Device, profile: RestrictionProfile, db: AsyncSession):
+    """Queue an InstallProfile command to apply the restriction profile to the device"""
+    from mdm.profile_builder import build_restriction_profile, build_install_profile_command
+
+    # Build the restriction profile
+    restriction_profile_data = build_restriction_profile(
+        name=profile.name,
+        description=profile.description or f"Managed by {profile.name}",
+        allowed_bundle_ids=profile.allowed_bundle_ids
+    )
+
+    # Build the MDM command
+    command_uuid = str(uuid.uuid4()).upper()
+    command_payload = build_install_profile_command(command_uuid, restriction_profile_data)
+
+    # Create command record
+    command = MDMCommand(
+        id=str(uuid.uuid4()),
+        command_uuid=command_uuid,
+        command_type="InstallProfile",
+        payload=command_payload,
+        status="pending",
+        device_id=device.id
+    )
+    db.add(command)
+    await db.commit()
+
+    # Send APNs push to wake the device
+    if device.push_token and device.push_magic:
+        try:
+            await send_push_notification(device.push_token, device.push_magic)
+            print(f"Sent APNs push to device {device.udid}")
+        except Exception as e:
+            print(f"Failed to send APNs push: {e}")
 
 
 async def handle_checkout(plist: dict, db: AsyncSession) -> Response:

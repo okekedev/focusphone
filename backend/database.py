@@ -162,6 +162,10 @@ class EnrollmentToken(Base):
     used_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     is_used: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    # Track enrollment progress
+    last_accessed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    device_udid: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # Linked during Authenticate
+
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
     owner: Mapped["User"] = relationship(back_populates="enrollment_tokens")
 
